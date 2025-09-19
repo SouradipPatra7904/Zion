@@ -18,7 +18,7 @@ public class KafkaLifecycleManager {
 
     private Process kafkaProcess;
 
-    // helper to run shell commands
+    // Helper to run shell commands
     private Process runCommand(String... command) throws IOException {
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.inheritIO(); // pipe logs to console
@@ -26,25 +26,14 @@ public class KafkaLifecycleManager {
     }
 
     @PostConstruct
-    public void startKafka() throws IOException, InterruptedException {
+    public void startKafka() throws IOException {
         logger.info("Starting Kafka broker...");
 
-        // 1. Generate Cluster ID (first time only)
-        Process clusterIdProcess = runCommand(KAFKA_HOME + "/bin/kafka-storage.sh", "random-uuid");
-        clusterIdProcess.waitFor();
-
-        // 2. Format storage (safe: skips if already formatted)
-        Process formatProcess = runCommand("/bin/bash", "-c",
-                KAFKA_HOME + "/bin/kafka-storage.sh format --ignore-formatted " +
-                "-t $(" + KAFKA_HOME + "/bin/kafka-storage.sh random-uuid) " +
-                "-c " + CONFIG_PATH);
-        formatProcess.waitFor();
-
-        // 3. Start broker
+        // Start Kafka broker without formatting / generating new cluster ID
         kafkaProcess = runCommand("/bin/bash", "-c",
                 KAFKA_HOME + "/bin/kafka-server-start.sh " + CONFIG_PATH);
 
-        logger.info("Kafka broker started.");
+        logger.info("Kafka broker started. Existing data/logs will persist.");
     }
 
     @PreDestroy
