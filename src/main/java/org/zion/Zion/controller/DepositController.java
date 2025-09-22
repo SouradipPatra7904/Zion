@@ -1,19 +1,16 @@
 package org.zion.Zion.controller;
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.hateoas.EntityModel;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.zion.Zion.dto.DepositRequestDTO;
 import org.zion.Zion.event.DepositMadeEvent;
 import org.zion.Zion.services.EventPublisher;
 
+import jakarta.validation.Valid;
 import java.time.Instant;
-import java.util.Map;
 
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-
-
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 
 @RestController
 @RequestMapping("api/accounts")
@@ -25,16 +22,17 @@ public class DepositController {
         this.eventPublisher = eventPublisher;
     }
 
-    @PostMapping("{account}/deposit")
-    public ResponseEntity<?> deposit(@PathVariable String accountId, @RequestBody Map<String, Object> body) throws Exception{
-        double amount = ((Number) body.get("amount")).doubleValue();
+    @PostMapping("{accountId}/deposit")
+    public ResponseEntity<?> deposit(@PathVariable String accountId, @Valid @RequestBody DepositRequestDTO request) throws Exception {
+        double amount = request.getAmount();
+        DepositMadeEvent depEvent = new DepositMadeEvent(accountId, amount, Instant.now());
 
-        DepositMadeEvent dep_Event = new DepositMadeEvent(accountId, amount, Instant.now() );
+        eventPublisher.publish("account-events", depEvent);
 
-        eventPublisher.publish("account-events", dep_Event);
+        EntityModel<DepositMadeEvent> model = EntityModel.of(depEvent,
+                linkTo(methodOn(DepositController.class).deposit(accountId, request)).withSelfRel(),
+                linkTo(methodOn(AccountQueryController.class).getAccount(accountId)).withRel("account"));
 
-        return ResponseEntity.accepted().body(Map.of("status", "accepted", "accountId", accountId, "amount", amount));
+        return ResponseEntity.accepted().body(model);
     }
-    
-    
 }
